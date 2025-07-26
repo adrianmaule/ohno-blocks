@@ -201,7 +201,7 @@ function drawPiecePreview(ctx, piece, canvasWidth, canvasHeight) {
 }
 
 function setupEventListeners() {
-    // Touch events for mobile
+    // Touch events for mobile drag and drop
     canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
     canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
     canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
@@ -211,28 +211,55 @@ function setupEventListeners() {
     canvas.addEventListener('mousemove', handleMouseMove);
     canvas.addEventListener('mouseup', handleMouseUp);
     
-    // Piece selection
+    // Piece preview drag start
     for (let i = 1; i <= 3; i++) {
         const piece = document.getElementById(`piece${i}`);
-        piece.addEventListener('click', () => selectPiece(i - 1));
         piece.addEventListener('touchstart', (e) => {
             e.preventDefault();
-            selectPiece(i - 1);
+            startDragFromPreview(i - 1, e);
+        }, { passive: false });
+        piece.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            startDragFromPreview(i - 1, e);
         });
     }
     
     // Prevent default touch behaviors
-    document.addEventListener('touchstart', (e) => e.preventDefault(), { passive: false });
-    document.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+    document.addEventListener('touchstart', (e) => {
+        if (e.target === canvas || e.target.classList.contains('piece-preview')) {
+            e.preventDefault();
+        }
+    }, { passive: false });
+    document.addEventListener('touchmove', (e) => {
+        if (isDragging) e.preventDefault();
+    }, { passive: false });
 }
 
-function selectPiece(index) {
-    if (currentPieces[index] && !currentPieces[index].used) {
-        // Remove previous selection
-        document.querySelectorAll('.piece-preview').forEach(p => p.classList.remove('selected'));
+function startDragFromPreview(pieceIndex, e) {
+    if (currentPieces[pieceIndex] && !currentPieces[pieceIndex].used) {
+        selectedPiece = pieceIndex;
+        isDragging = true;
+        dragPiece = {
+            shape: currentPieces[pieceIndex].shape,
+            color: currentPieces[pieceIndex].color
+        };
         
-        selectedPiece = index;
-        document.getElementById(`piece${index + 1}`).classList.add('selected');
+        // Get initial position
+        const pos = e.touches ? getTouchPos(e) : getMousePos(e);
+        dragPosition = { x: pos.x, y: pos.y };
+        
+        // Calculate offset from piece center
+        const pieceWidth = dragPiece.shape[0].length * (canvas.width / BOARD_WIDTH);
+        const pieceHeight = dragPiece.shape.length * (canvas.height / BOARD_HEIGHT);
+        dragOffset = {
+            x: pieceWidth / 2,
+            y: pieceHeight / 2
+        };
+        
+        // Visual feedback
+        document.querySelectorAll('.piece-preview').forEach(p => p.classList.remove('selected'));
+        document.getElementById(`piece${pieceIndex + 1}`).classList.add('selected');
+        document.getElementById(`piece${pieceIndex + 1}`).style.opacity = '0.5';
     }
 }
 
@@ -256,55 +283,156 @@ function getMousePos(e) {
 function handleTouchStart(e) {
     e.preventDefault();
     const pos = getTouchPos(e);
-    handleInputStart(pos.x, pos.y);
+    // Only start drag if not already dragging from preview
+    if (!isDragging) {
+        handleInputStart(pos.x, pos.y);
+    }
 }
 
 function handleTouchMove(e) {
     e.preventDefault();
-    const pos = getTouchPos(e);
-    handleInputMove(pos.x, pos.y);
+    if (isDragging) {
+        const pos = getTouchPos(e);
+        handleInputMove(pos.x, pos.y);
+    }
 }
 
 function handleTouchEnd(e) {
     e.preventDefault();
-    handleInputEnd();
+    if (isDragging) {
+        const pos = e.changedTouches ? 
+            { x: e.changedTouches[0].clientX - canvas.getBoundingClientRect().left,
+              y: e.changedTouches[0].clientY - canvas.getBoundingClientRect().top } :
+            dragPosition;
+        handleInputEnd(pos.x, pos.y);
+    }
 }
 
 function handleMouseDown(e) {
     const pos = getMousePos(e);
-    handleInputStart(pos.x, pos.y);
+    if (!isDragging) {
+        handleInputStart(pos.x, pos.y);
+    }
 }
 
 function handleMouseMove(e) {
-    const pos = getMousePos(e);
-    handleInputMove(pos.x, pos.y);
+    if (isDragging) {
+        const pos = getMousePos(e);
+        handleInputMove(pos.x, pos.y);
+    }
 }
 
 function handleMouseUp(e) {
-    handleInputEnd();
+    if (isDragging) {
+        const pos = getMousePos(e);
+        handleInputEnd(pos.x, pos.y);
+    }
 }
 
 function handleInputStart(x, y) {
-    if (selectedPiece !== null && !currentPieces[selectedPiece].used) {
-        isDragging = true;
-    }
+    // This function is now mainly for starting drag from canvas
+    // Most drag starts will come from startDragFromPreview
 }
 
 function handleInputMove(x, y) {
-    if (isDragging && selectedPiece !== null) {
-        // Update hover position for visual feedback
-        const boardPos = screenToBoardCoordinates(x, y);
-        drawGame(boardPos);
+    if (isDragging && dragPiece) {
+        // Update drag position
+        dragPosition = { x: x, y: y };
+        
+        // Redraw game with drag preview
+        drawGame();
+        drawDragPreview();
     }
 }
 
-function handleInputEnd() {
-    if (isDragging && selectedPiece !== null) {
-        const rect = canvas.getBoundingClientRect();
-        // Try to place the piece
-        placePiece();
+function handleInputEnd(x, y) {
+    if (isDragging && dragPiece && selectedPiece !== null) {
+        // Try to place the piece at the drop position
+        const boardPos = screenToBoardCoordinates(x - dragOffset.x, y - dragOffset.y);
+        
+        if (canPlacePiece(dragPiece.shape, boardPos.row, boardPos.col)) {
+            placePieceOnBoard(dragPiece.shape, dragPiece.color, boardPos.row, boardPos.col);
+            
+            // Mark piece as used
+            currentPieces[selectedPiece].used = true;
+            document.getElementById(`piece${selectedPiece + 1}`).style.opacity = '0.3';
+            
+            // Clear completed lines
+            clearCompletedLines();
+            
+            // Check if all pieces are used
+            if (currentPieces.every(p => p.used)) {
+                generateNewPieces();
+            }
+            
+            // Check for game over
+            checkGameOver();
+        }
+        
+        // Reset drag state
+        isDragging = false;
+        dragPiece = null;
+        selectedPiece = null;
+        
+        // Reset piece preview opacity
+        document.querySelectorAll('.piece-preview').forEach(p => {
+            p.style.opacity = '1';
+            p.classList.remove('selected');
+        });
+        
+        // Redraw without drag preview
+        drawGame();
     }
-    isDragging = false;
+}
+
+function drawDragPreview() {
+    if (!isDragging || !dragPiece) return;
+    
+    const cellWidth = canvas.width / BOARD_WIDTH;
+    const cellHeight = canvas.height / BOARD_HEIGHT;
+    
+    // Calculate board position for placement preview
+    const boardPos = screenToBoardCoordinates(dragPosition.x - dragOffset.x, dragPosition.y - dragOffset.y);
+    
+    // Draw placement preview on board (semi-transparent)
+    if (canPlacePiece(dragPiece.shape, boardPos.row, boardPos.col)) {
+        ctx.globalAlpha = 0.5;
+        for (let row = 0; row < dragPiece.shape.length; row++) {
+            for (let col = 0; col < dragPiece.shape[0].length; col++) {
+                if (dragPiece.shape[row][col]) {
+                    const x = (boardPos.col + col) * cellWidth;
+                    const y = (boardPos.row + row) * cellHeight;
+                    
+                    if (boardPos.row + row >= 0 && boardPos.row + row < BOARD_HEIGHT &&
+                        boardPos.col + col >= 0 && boardPos.col + col < BOARD_WIDTH) {
+                        ctx.fillStyle = dragPiece.color;
+                        ctx.fillRect(x, y, cellWidth - 1, cellHeight - 1);
+                    }
+                }
+            }
+        }
+        ctx.globalAlpha = 1.0;
+    }
+    
+    // Draw the dragging piece following the finger/mouse
+    ctx.globalAlpha = 0.8;
+    for (let row = 0; row < dragPiece.shape.length; row++) {
+        for (let col = 0; col < dragPiece.shape[0].length; col++) {
+            if (dragPiece.shape[row][col]) {
+                const x = dragPosition.x - dragOffset.x + (col * cellWidth);
+                const y = dragPosition.y - dragOffset.y + (row * cellHeight);
+                
+                ctx.fillStyle = dragPiece.color;
+                ctx.fillRect(x, y, cellWidth - 1, cellHeight - 1);
+                
+                // Add border for better visibility
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(x, y, cellWidth - 1, cellHeight - 1);
+            }
+        }
+    }
+    ctx.globalAlpha = 1.0;
 }
 
 function screenToBoardCoordinates(screenX, screenY) {
@@ -314,67 +442,28 @@ function screenToBoardCoordinates(screenX, screenY) {
     const col = Math.floor(screenX / cellWidth);
     const row = Math.floor(screenY / cellHeight);
     
-    return { row, col };
+    return { row: Math.max(0, Math.min(row, BOARD_HEIGHT - 1)), 
+             col: Math.max(0, Math.min(col, BOARD_WIDTH - 1)) };
 }
 
-function placePiece() {
-    if (selectedPiece === null) return;
-    
-    const rect = canvas.getBoundingClientRect();
-    const piece = currentPieces[selectedPiece];
-    
-    // Get the last mouse/touch position
-    const lastEvent = event;
-    let pos;
-    
-    if (lastEvent.touches || lastEvent.changedTouches) {
-        pos = getTouchPos(lastEvent);
-    } else {
-        pos = getMousePos(lastEvent);
-    }
-    
-    const boardPos = screenToBoardCoordinates(pos.x, pos.y);
-    
-    if (canPlacePiece(piece.shape, boardPos.row, boardPos.col)) {
-        // Place the piece on the board
-        for (let row = 0; row < piece.shape.length; row++) {
-            for (let col = 0; col < piece.shape[0].length; col++) {
-                if (piece.shape[row][col]) {
-                    const boardRow = boardPos.row + row;
-                    const boardCol = boardPos.col + col;
-                    if (boardRow >= 0 && boardRow < BOARD_HEIGHT && boardCol >= 0 && boardCol < BOARD_WIDTH) {
-                        board[boardRow][boardCol] = piece.color;
-                    }
+function placePieceOnBoard(shape, color, startRow, startCol) {
+    for (let row = 0; row < shape.length; row++) {
+        for (let col = 0; col < shape[0].length; col++) {
+            if (shape[row][col]) {
+                const boardRow = startRow + row;
+                const boardCol = startCol + col;
+                if (boardRow >= 0 && boardRow < BOARD_HEIGHT && 
+                    boardCol >= 0 && boardCol < BOARD_WIDTH) {
+                    board[boardRow][boardCol] = color;
                 }
             }
         }
-        
-        // Mark piece as used
-        piece.used = true;
-        selectedPiece = null;
-        
-        // Update score
-        const cellsPlaced = piece.shape.flat().filter(cell => cell === 1).length;
-        score += cellsPlaced;
-        
-        // Check for completed lines
-        checkCompletedLines();
-        
-        // Update UI
-        updatePiecePreviews();
-        updateScore();
-        
-        // Remove selection
-        document.querySelectorAll('.piece-preview').forEach(p => p.classList.remove('selected'));
-        
-        // Check if all pieces are used
-        if (currentPieces.every(p => p.used)) {
-            generateNewPieces();
-        }
-        
-        // Check for game over
-        checkGameOver();
     }
+    
+    // Update score
+    const pieceSize = shape.flat().filter(cell => cell).length;
+    score += pieceSize;
+    updateScore();
 }
 
 function canPlacePiece(shape, startRow, startCol) {
@@ -504,7 +593,7 @@ function updateScore() {
     linesElement.textContent = linesCleared;
 }
 
-function drawGame(hoverPos = null) {
+function drawGame() {
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
@@ -544,37 +633,14 @@ function drawGame(hoverPos = null) {
             }
         }
     }
-    
-    // Draw hover preview
-    if (hoverPos && selectedPiece !== null && !currentPieces[selectedPiece].used) {
-        const piece = currentPieces[selectedPiece];
-        if (canPlacePiece(piece.shape, hoverPos.row, hoverPos.col)) {
-            ctx.fillStyle = piece.color;
-            ctx.globalAlpha = 0.5;
-            
-            for (let row = 0; row < piece.shape.length; row++) {
-                for (let col = 0; col < piece.shape[0].length; col++) {
-                    if (piece.shape[row][col]) {
-                        const boardRow = hoverPos.row + row;
-                        const boardCol = hoverPos.col + col;
-                        
-                        if (boardRow >= 0 && boardRow < BOARD_HEIGHT && 
-                            boardCol >= 0 && boardCol < BOARD_WIDTH) {
-                            ctx.fillRect(boardCol * cellWidth + 1, boardRow * cellHeight + 1,
-                                       cellWidth - 2, cellHeight - 2);
-                        }
-                    }
-                }
-            }
-            
-            ctx.globalAlpha = 1.0;
-        }
-    }
 }
 
 function gameLoop() {
     if (!gameOver) {
         drawGame();
+        if (isDragging) {
+            drawDragPreview();
+        }
         requestAnimationFrame(gameLoop);
     }
 }
