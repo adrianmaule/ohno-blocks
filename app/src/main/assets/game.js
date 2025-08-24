@@ -12,6 +12,8 @@ let currentPieces = [];
 let selectedPiece = null;
 let isDragging = false;
 let dragOffset = { x: 0, y: 0 };
+let dragPiece = null;
+let dragPosition = { x: 0, y: 0 };
 let gameOver = false;
 
 // Canvas elements
@@ -211,28 +213,61 @@ function setupEventListeners() {
     canvas.addEventListener('mousemove', handleMouseMove);
     canvas.addEventListener('mouseup', handleMouseUp);
     
-    // Piece preview drag start
+    // Piece preview drag start - improved immediate response
     for (let i = 1; i <= 3; i++) {
         const piece = document.getElementById(`piece${i}`);
+        
+        // Touch events for immediate drag start
         piece.addEventListener('touchstart', (e) => {
             e.preventDefault();
+            e.stopPropagation();
             startDragFromPreview(i - 1, e);
         }, { passive: false });
+        
+        // Mouse events for desktop testing
         piece.addEventListener('mousedown', (e) => {
             e.preventDefault();
+            e.stopPropagation();
             startDragFromPreview(i - 1, e);
         });
     }
     
-    // Prevent default touch behaviors
-    document.addEventListener('touchstart', (e) => {
-        if (e.target === canvas || e.target.classList.contains('piece-preview')) {
+    // Global touch event handling for drag continuation
+    document.addEventListener('touchmove', (e) => {
+        if (isDragging) {
             e.preventDefault();
+            e.stopPropagation();
+            const pos = getTouchPos(e, canvas);
+            handleInputMove(pos.x, pos.y);
         }
     }, { passive: false });
-    document.addEventListener('touchmove', (e) => {
-        if (isDragging) e.preventDefault();
+    
+    document.addEventListener('touchend', (e) => {
+        if (isDragging) {
+            e.preventDefault();
+            e.stopPropagation();
+            const pos = e.changedTouches && e.changedTouches.length > 0 ? 
+                getTouchPos(e, canvas) : dragPosition;
+            handleInputEnd(pos.x, pos.y);
+        }
     }, { passive: false });
+    
+    // Global mouse events for drag continuation
+    document.addEventListener('mousemove', (e) => {
+        if (isDragging) {
+            e.preventDefault();
+            const pos = getMousePos(e, canvas);
+            handleInputMove(pos.x, pos.y);
+        }
+    });
+    
+    document.addEventListener('mouseup', (e) => {
+        if (isDragging) {
+            e.preventDefault();
+            const pos = getMousePos(e, canvas);
+            handleInputEnd(pos.x, pos.y);
+        }
+    });
 }
 
 function startDragFromPreview(pieceIndex, e) {
@@ -244,27 +279,35 @@ function startDragFromPreview(pieceIndex, e) {
             color: currentPieces[pieceIndex].color
         };
         
-        // Get initial position
-        const pos = e.touches ? getTouchPos(e) : getMousePos(e);
+        // Get initial position - handle both touch and mouse events
+        const pos = e.touches ? getTouchPos(e, canvas) : getMousePos(e, canvas);
         dragPosition = { x: pos.x, y: pos.y };
         
-        // Calculate offset from piece center
-        const pieceWidth = dragPiece.shape[0].length * (canvas.width / BOARD_WIDTH);
-        const pieceHeight = dragPiece.shape.length * (canvas.height / BOARD_HEIGHT);
+        // Calculate offset from piece center for better dragging feel
+        const cellWidth = canvas.width / BOARD_WIDTH;
+        const cellHeight = canvas.height / BOARD_HEIGHT;
+        const pieceWidth = dragPiece.shape[0].length * cellWidth;
+        const pieceHeight = dragPiece.shape.length * cellHeight;
+        
         dragOffset = {
             x: pieceWidth / 2,
             y: pieceHeight / 2
         };
         
-        // Visual feedback
+        // Visual feedback - immediate response
         document.querySelectorAll('.piece-preview').forEach(p => p.classList.remove('selected'));
-        document.getElementById(`piece${pieceIndex + 1}`).classList.add('selected');
-        document.getElementById(`piece${pieceIndex + 1}`).style.opacity = '0.5';
+        const pieceElement = document.getElementById(`piece${pieceIndex + 1}`);
+        pieceElement.classList.add('selected');
+        pieceElement.style.opacity = '0.5';
+        
+        // Force immediate redraw to show drag start
+        drawGame();
+        drawDragPreview();
     }
 }
 
-function getTouchPos(e) {
-    const rect = canvas.getBoundingClientRect();
+function getTouchPos(e, targetElement = canvas) {
+    const rect = targetElement.getBoundingClientRect();
     const touch = e.touches[0] || e.changedTouches[0];
     return {
         x: touch.clientX - rect.left,
@@ -272,8 +315,8 @@ function getTouchPos(e) {
     };
 }
 
-function getMousePos(e) {
-    const rect = canvas.getBoundingClientRect();
+function getMousePos(e, targetElement = canvas) {
+    const rect = targetElement.getBoundingClientRect();
     return {
         x: e.clientX - rect.left,
         y: e.clientY - rect.top
@@ -282,9 +325,9 @@ function getMousePos(e) {
 
 function handleTouchStart(e) {
     e.preventDefault();
-    const pos = getTouchPos(e);
-    // Only start drag if not already dragging from preview
+    // Only handle touch start on canvas if not already dragging from preview
     if (!isDragging) {
+        const pos = getTouchPos(e);
         handleInputStart(pos.x, pos.y);
     }
 }
@@ -300,17 +343,16 @@ function handleTouchMove(e) {
 function handleTouchEnd(e) {
     e.preventDefault();
     if (isDragging) {
-        const pos = e.changedTouches ? 
-            { x: e.changedTouches[0].clientX - canvas.getBoundingClientRect().left,
-              y: e.changedTouches[0].clientY - canvas.getBoundingClientRect().top } :
-            dragPosition;
+        const pos = e.changedTouches && e.changedTouches.length > 0 ? 
+            getTouchPos(e) : dragPosition;
         handleInputEnd(pos.x, pos.y);
     }
 }
 
 function handleMouseDown(e) {
-    const pos = getMousePos(e);
+    // Only handle mouse down on canvas if not already dragging from preview
     if (!isDragging) {
+        const pos = getMousePos(e);
         handleInputStart(pos.x, pos.y);
     }
 }
@@ -336,10 +378,10 @@ function handleInputStart(x, y) {
 
 function handleInputMove(x, y) {
     if (isDragging && dragPiece) {
-        // Update drag position
+        // Update drag position for smooth following
         dragPosition = { x: x, y: y };
         
-        // Redraw game with drag preview
+        // Immediate redraw for responsive feel
         drawGame();
         drawDragPreview();
     }
@@ -358,7 +400,7 @@ function handleInputEnd(x, y) {
             document.getElementById(`piece${selectedPiece + 1}`).style.opacity = '0.3';
             
             // Clear completed lines
-            clearCompletedLines();
+            checkCompletedLines();
             
             // Check if all pieces are used
             if (currentPieces.every(p => p.used)) {
