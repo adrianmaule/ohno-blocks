@@ -17,6 +17,8 @@
 - Improved touch position calculation and drag offset handling
 - Enhanced touch responsiveness for better mobile gameplay experience
 - Added proper touch event prevention to avoid browser interference
+- **NEW**: Changed piece generation to respond individually - new pieces appear immediately when one is used
+- **NEW**: Added generateSinglePiece() and updateSinglePiecePreview() functions for better gameplay flow
 
 ## CI/CD Improvements
 - Extended build triggers to include feature, fix, and hotfix branches
@@ -29,6 +31,8 @@
 - Improved touch position tracking for smooth drag operations
 - Better event handling chain for piece preview interactions
 - Enhanced drag state management for responsive touch controls
+- **NEW**: Individual piece generation pattern for better gameplay flow
+- **NEW**: Immediate piece replacement strategy to maintain continuous play
 
 ## AI Suggestions Rejected
 - None - all suggestions focused on improving user experience

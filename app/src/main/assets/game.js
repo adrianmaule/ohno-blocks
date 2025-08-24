@@ -156,6 +156,37 @@ function generateNewPieces() {
     updatePiecePreviews();
 }
 
+function generateSinglePiece(index) {
+    const pieceTypes = Object.keys(PIECE_TYPES);
+    const randomType = pieceTypes[Math.floor(Math.random() * pieceTypes.length)];
+    
+    currentPieces[index] = {
+        type: randomType,
+        shape: PIECE_TYPES[randomType],
+        color: PIECE_COLORS[randomType],
+        used: false
+    };
+    
+    updateSinglePiecePreview(index);
+}
+
+function updateSinglePiecePreview(index) {
+    const preview = document.getElementById(`piece${index + 1}`);
+    const canvas = preview.querySelector('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    if (currentPieces[index] && !currentPieces[index].used) {
+        drawPiecePreview(ctx, currentPieces[index], canvas.width, canvas.height);
+        preview.classList.remove('used');
+        preview.style.opacity = '1';
+    } else {
+        preview.classList.add('used');
+    }
+}
+
 function updatePiecePreviews() {
     for (let i = 0; i < 3; i++) {
         const preview = document.getElementById(`piece${i + 1}`);
@@ -402,10 +433,8 @@ function handleInputEnd(x, y) {
             // Clear completed lines
             checkCompletedLines();
 
-            // Check if all pieces are used
-            if (currentPieces.every(p => p.used)) {
-                generateNewPieces();
-            }
+            // Generate a new piece immediately to replace the used one
+            generateSinglePiece(selectedPiece);
 
             // Check for game over
             checkGameOver();
