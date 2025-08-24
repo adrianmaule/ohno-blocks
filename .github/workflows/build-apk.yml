@@ -45,9 +45,16 @@ jobs:
     - name: Build Debug APK
       run: gradle assembleDebug
       
+    - name: Sanitize branch name
+      id: sanitize
+      run: |
+        # Replace forward slashes and other invalid characters with dashes
+        SANITIZED_BRANCH_NAME=$(echo "${{ github.ref_name }}" | sed 's/[\/:<>|*?\\]/-/g')
+        echo "branch_name=${SANITIZED_BRANCH_NAME}" >> $GITHUB_OUTPUT
+        
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
-        name: ohno-blocks-apk-${{ github.ref_name }}-${{ github.sha }}
+        name: ohno-blocks-apk-${{ steps.sanitize.outputs.branch_name }}-${{ github.sha }}
         path: app/build/outputs/apk/debug/*.apk
         retention-days: 30
