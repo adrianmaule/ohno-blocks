@@ -1,0 +1,195 @@
+name: Game Testing Pipeline
+
+on:
+  push:
+    branches: [ 'feature/**', 'fix/**', 'hotfix/**' ]
+    paths:
+      - 'app/src/main/assets/**'
+      - 'app/src/main/java/**'
+      - 'app/build.gradle'
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  validate-game-logic:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Check Game Assets
+        run: |
+          echo "Validating game assets..."
+          
+          # Check for required game files
+          if [ ! -f "app/src/main/assets/game.html" ]; then
+            echo "ERROR: Missing game.html"
+            exit 1
+          fi
+          
+          if [ ! -f "app/src/main/assets/game.js" ]; then
+            echo "ERROR: Missing game.js" 
+            exit 1
+          fi
+          
+          echo "✅ Required game assets found"
+
+      - name: Validate Game JavaScript
+        run: |
+          echo "Checking JavaScript syntax..."
+          
+          # Basic JavaScript syntax check using Node.js
+          if command -v node >/dev/null 2>&1; then
+            node -c app/src/main/assets/game.js && echo "✅ JavaScript syntax valid" || exit 1
+          else
+            echo "⚠️ Node.js not available, skipping syntax check"
+          fi
+
+      - name: Check Touch Event Implementation
+        run: |
+          echo "Validating touch event handling..."
+          
+          # Check for proper touch event listeners
+          required_events=("touchstart" "touchmove" "touchend" "addEventListener")
+          
+          for event in "${required_events[@]}"; do
+            if grep -q "$event" app/src/main/assets/game.js; then
+              echo "✅ Found $event implementation"
+            else
+              echo "⚠️ Missing $event implementation"
+            fi
+          done
+
+      - name: Performance Check
+        run: |
+          echo "Checking for performance considerations..."
+          
+          # Check for performance-related patterns
+          performance_patterns=("requestAnimationFrame" "clearRect" "preventDefault")
+          
+          for pattern in "${performance_patterns[@]}"; do
+            if grep -q "$pattern" app/src/main/assets/game.js; then
+              echo "✅ Found $pattern (good for performance)"
+            else
+              echo "⚠️ Consider using $pattern for better performance"
+            fi
+          done
+
+      - name: AI Session Validation
+        run: |
+          echo "Checking AI development session logs..."
+          
+          if [ -d "AI_SESSIONS" ]; then
+            session_count=$(find AI_SESSIONS -name "*.md" -not -name "README.md" | wc -l)
+            echo "✅ Found $session_count AI session logs"
+            
+            # Check if recent changes have corresponding AI sessions
+            if git diff --name-only HEAD~1 HEAD | grep -E '\.(js|java)$'; then
+              echo "Code changes detected, checking for recent AI session..."
+              if find AI_SESSIONS -name "$(date +%Y-%m-%d)*.md" | head -1; then
+                echo "✅ Recent AI session documented"
+              else
+                echo "⚠️ Code changes without AI session documentation"
+              fi
+            fi
+          else
+            echo "⚠️ No AI_SESSIONS directory found"
+          fi
+
+  build-and-test:
+    needs: validate-game-logic
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+      
+    - name: Cache Gradle packages
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.gradle/caches
+          ~/.gradle/wrapper
+        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+        restore-keys: |
+          ${{ runner.os }}-gradle-
+          
+    - name: Setup Gradle
+      uses: gradle/gradle-build-action@v2
+      with:
+        gradle-version: '8.0'
+        
+    - name: Create debug keystore
+      run: |
+        keytool -genkey -v -keystore app/debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+        
+    - name: Build Debug APK
+      run: gradle assembleDebug
+      
+    - name: Validate APK Size
+      run: |
+        apk_size=$(stat -c%s app/build/outputs/apk/debug/*.apk)
+        apk_size_mb=$((apk_size / 1024 / 1024))
+        
+        echo "APK size: ${apk_size_mb}MB"
+        
+        # Warn if APK is getting large (mobile game should be lightweight)
+        if [ $apk_size_mb -gt 50 ]; then
+          echo "⚠️ APK size is large (${apk_size_mb}MB). Consider optimizing assets."
+        else
+          echo "✅ APK size acceptable (${apk_size_mb}MB)"
+        fi
+        
+    - name: Upload Branch APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: ohno-blocks-${{ github.ref_name }}-${{ github.sha }}
+        path: app/build/outputs/apk/debug/*.apk
+        retention-days: 7  # Shorter retention for branch builds
+
+    - name: Comment APK Info on PR
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const path = require('path');
+          
+          // Find the APK file
+          const apkDir = 'app/build/outputs/apk/debug';
+          const apkFiles = fs.readdirSync(apkDir).filter(f => f.endsWith('.apk'));
+          
+          if (apkFiles.length > 0) {
+            const apkPath = path.join(apkDir, apkFiles[0]);
+            const stats = fs.statSync(apkPath);
+            const sizeInMB = (stats.size / 1024 / 1024).toFixed(2);
+            
+            const comment = `## 🎮 Game Build Complete
+            
+            **Branch:** \`${{ github.ref_name }}\`  
+            **APK Size:** ${sizeInMB}MB  
+            **Build Status:** ✅ Success
+            
+            **Download:** Check the artifacts section of this workflow run.
+            
+            ### Testing Checklist
+            - [ ] Touch drag works immediately from piece previews
+            - [ ] Smooth dragging across entire screen  
+            - [ ] Game performance maintains 60fps
+            - [ ] Touch controls responsive on various devices
+            - [ ] No memory leaks during extended play`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+          }

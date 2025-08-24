@@ -25,22 +25,22 @@ const linesElement = document.getElementById('linesValue');
 // Piece definitions
 const PIECE_TYPES = {
     SINGLE: [[1]],
-    
+
     DOUBLE_2x2: [
         [1, 1],
         [1, 1]
     ],
-    
+
     LINE_1x4: [[1, 1, 1, 1]],
-    
+
     LINE_1x5: [[1, 1, 1, 1, 1]],
-    
+
     SQUARE_3x3: [
         [1, 1, 1],
         [1, 1, 1],
         [1, 1, 1]
     ],
-    
+
     // Standard Tetris pieces
     I_PIECE: [
         [0, 0, 0, 0],
@@ -48,36 +48,36 @@ const PIECE_TYPES = {
         [0, 0, 0, 0],
         [0, 0, 0, 0]
     ],
-    
+
     O_PIECE: [
         [1, 1],
         [1, 1]
     ],
-    
+
     T_PIECE: [
         [0, 1, 0],
         [1, 1, 1],
         [0, 0, 0]
     ],
-    
+
     S_PIECE: [
         [0, 1, 1],
         [1, 1, 0],
         [0, 0, 0]
     ],
-    
+
     Z_PIECE: [
         [1, 1, 0],
         [0, 1, 1],
         [0, 0, 0]
     ],
-    
+
     J_PIECE: [
         [1, 0, 0],
         [1, 1, 1],
         [0, 0, 0]
     ],
-    
+
     L_PIECE: [
         [0, 0, 1],
         [1, 1, 1],
@@ -105,16 +105,16 @@ const PIECE_COLORS = {
 function initGame() {
     // Initialize board
     board = Array(BOARD_HEIGHT).fill().map(() => Array(BOARD_WIDTH).fill(0));
-    
+
     // Resize canvas based on screen size
     resizeCanvas();
-    
+
     // Generate initial pieces
     generateNewPieces();
-    
+
     // Set up event listeners
     setupEventListeners();
-    
+
     // Start game loop
     gameLoop();
 }
@@ -123,10 +123,10 @@ function resizeCanvas() {
     const container = document.querySelector('.game-board');
     const maxWidth = container.clientWidth - 40;
     const maxHeight = container.clientHeight - 40;
-    
+
     const aspectRatio = BOARD_WIDTH / BOARD_HEIGHT;
     let canvasWidth, canvasHeight;
-    
+
     if (maxWidth / maxHeight > aspectRatio) {
         canvasHeight = maxHeight;
         canvasWidth = canvasHeight * aspectRatio;
@@ -134,7 +134,7 @@ function resizeCanvas() {
         canvasWidth = maxWidth;
         canvasHeight = canvasWidth / aspectRatio;
     }
-    
+
     canvas.width = canvasWidth;
     canvas.height = canvasHeight;
 }
@@ -142,7 +142,7 @@ function resizeCanvas() {
 function generateNewPieces() {
     const pieceTypes = Object.keys(PIECE_TYPES);
     currentPieces = [];
-    
+
     for (let i = 0; i < 3; i++) {
         const randomType = pieceTypes[Math.floor(Math.random() * pieceTypes.length)];
         currentPieces.push({
@@ -152,7 +152,7 @@ function generateNewPieces() {
             used: false
         });
     }
-    
+
     updatePiecePreviews();
 }
 
@@ -161,10 +161,10 @@ function updatePiecePreviews() {
         const preview = document.getElementById(`piece${i + 1}`);
         const canvas = preview.querySelector('canvas');
         const ctx = canvas.getContext('2d');
-        
+
         // Clear canvas
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
+
         if (currentPieces[i] && !currentPieces[i].used) {
             drawPiecePreview(ctx, currentPieces[i], canvas.width, canvas.height);
             preview.classList.remove('used');
@@ -178,21 +178,21 @@ function drawPiecePreview(ctx, piece, canvasWidth, canvasHeight) {
     const shape = piece.shape;
     const rows = shape.length;
     const cols = shape[0].length;
-    
+
     const cellSize = Math.min(canvasWidth / cols, canvasHeight / rows) * 0.8;
     const offsetX = (canvasWidth - cols * cellSize) / 2;
     const offsetY = (canvasHeight - rows * cellSize) / 2;
-    
+
     ctx.fillStyle = piece.color;
-    
+
     for (let row = 0; row < rows; row++) {
         for (let col = 0; col < cols; col++) {
             if (shape[row][col]) {
                 const x = offsetX + col * cellSize;
                 const y = offsetY + row * cellSize;
-                
+
                 ctx.fillRect(x, y, cellSize - 1, cellSize - 1);
-                
+
                 // Add highlight
                 ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
                 ctx.fillRect(x, y, cellSize - 1, cellSize / 4);
@@ -207,23 +207,23 @@ function setupEventListeners() {
     canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
     canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
     canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
-    
+
     // Mouse events for testing
     canvas.addEventListener('mousedown', handleMouseDown);
     canvas.addEventListener('mousemove', handleMouseMove);
     canvas.addEventListener('mouseup', handleMouseUp);
-    
+
     // Piece preview drag start - improved immediate response
     for (let i = 1; i <= 3; i++) {
         const piece = document.getElementById(`piece${i}`);
-        
+
         // Touch events for immediate drag start
         piece.addEventListener('touchstart', (e) => {
             e.preventDefault();
             e.stopPropagation();
             startDragFromPreview(i - 1, e);
         }, { passive: false });
-        
+
         // Mouse events for desktop testing
         piece.addEventListener('mousedown', (e) => {
             e.preventDefault();
@@ -231,7 +231,7 @@ function setupEventListeners() {
             startDragFromPreview(i - 1, e);
         });
     }
-    
+
     // Global touch event handling for drag continuation
     document.addEventListener('touchmove', (e) => {
         if (isDragging) {
@@ -241,17 +241,17 @@ function setupEventListeners() {
             handleInputMove(pos.x, pos.y);
         }
     }, { passive: false });
-    
+
     document.addEventListener('touchend', (e) => {
         if (isDragging) {
             e.preventDefault();
             e.stopPropagation();
-            const pos = e.changedTouches && e.changedTouches.length > 0 ? 
+            const pos = e.changedTouches && e.changedTouches.length > 0 ?
                 getTouchPos(e, canvas) : dragPosition;
             handleInputEnd(pos.x, pos.y);
         }
     }, { passive: false });
-    
+
     // Global mouse events for drag continuation
     document.addEventListener('mousemove', (e) => {
         if (isDragging) {
@@ -260,7 +260,7 @@ function setupEventListeners() {
             handleInputMove(pos.x, pos.y);
         }
     });
-    
+
     document.addEventListener('mouseup', (e) => {
         if (isDragging) {
             e.preventDefault();
@@ -278,28 +278,28 @@ function startDragFromPreview(pieceIndex, e) {
             shape: currentPieces[pieceIndex].shape,
             color: currentPieces[pieceIndex].color
         };
-        
+
         // Get initial position - handle both touch and mouse events
         const pos = e.touches ? getTouchPos(e, canvas) : getMousePos(e, canvas);
         dragPosition = { x: pos.x, y: pos.y };
-        
+
         // Calculate offset from piece center for better dragging feel
         const cellWidth = canvas.width / BOARD_WIDTH;
         const cellHeight = canvas.height / BOARD_HEIGHT;
         const pieceWidth = dragPiece.shape[0].length * cellWidth;
         const pieceHeight = dragPiece.shape.length * cellHeight;
-        
+
         dragOffset = {
             x: pieceWidth / 2,
             y: pieceHeight / 2
         };
-        
+
         // Visual feedback - immediate response
         document.querySelectorAll('.piece-preview').forEach(p => p.classList.remove('selected'));
         const pieceElement = document.getElementById(`piece${pieceIndex + 1}`);
         pieceElement.classList.add('selected');
         pieceElement.style.opacity = '0.5';
-        
+
         // Force immediate redraw to show drag start
         drawGame();
         drawDragPreview();
@@ -343,7 +343,7 @@ function handleTouchMove(e) {
 function handleTouchEnd(e) {
     e.preventDefault();
     if (isDragging) {
-        const pos = e.changedTouches && e.changedTouches.length > 0 ? 
+        const pos = e.changedTouches && e.changedTouches.length > 0 ?
             getTouchPos(e) : dragPosition;
         handleInputEnd(pos.x, pos.y);
     }
@@ -380,7 +380,7 @@ function handleInputMove(x, y) {
     if (isDragging && dragPiece) {
         // Update drag position for smooth following
         dragPosition = { x: x, y: y };
-        
+
         // Immediate redraw for responsive feel
         drawGame();
         drawDragPreview();
@@ -391,37 +391,37 @@ function handleInputEnd(x, y) {
     if (isDragging && dragPiece && selectedPiece !== null) {
         // Try to place the piece at the drop position
         const boardPos = screenToBoardCoordinates(x - dragOffset.x, y - dragOffset.y);
-        
+
         if (canPlacePiece(dragPiece.shape, boardPos.row, boardPos.col)) {
             placePieceOnBoard(dragPiece.shape, dragPiece.color, boardPos.row, boardPos.col);
-            
+
             // Mark piece as used
             currentPieces[selectedPiece].used = true;
             document.getElementById(`piece${selectedPiece + 1}`).style.opacity = '0.3';
-            
+
             // Clear completed lines
             checkCompletedLines();
-            
+
             // Check if all pieces are used
             if (currentPieces.every(p => p.used)) {
                 generateNewPieces();
             }
-            
+
             // Check for game over
             checkGameOver();
         }
-        
+
         // Reset drag state
         isDragging = false;
         dragPiece = null;
         selectedPiece = null;
-        
+
         // Reset piece preview opacity
         document.querySelectorAll('.piece-preview').forEach(p => {
             p.style.opacity = '1';
             p.classList.remove('selected');
         });
-        
+
         // Redraw without drag preview
         drawGame();
     }
@@ -429,13 +429,13 @@ function handleInputEnd(x, y) {
 
 function drawDragPreview() {
     if (!isDragging || !dragPiece) return;
-    
+
     const cellWidth = canvas.width / BOARD_WIDTH;
     const cellHeight = canvas.height / BOARD_HEIGHT;
-    
+
     // Calculate board position for placement preview
     const boardPos = screenToBoardCoordinates(dragPosition.x - dragOffset.x, dragPosition.y - dragOffset.y);
-    
+
     // Draw placement preview on board (semi-transparent)
     if (canPlacePiece(dragPiece.shape, boardPos.row, boardPos.col)) {
         ctx.globalAlpha = 0.5;
@@ -444,7 +444,7 @@ function drawDragPreview() {
                 if (dragPiece.shape[row][col]) {
                     const x = (boardPos.col + col) * cellWidth;
                     const y = (boardPos.row + row) * cellHeight;
-                    
+
                     if (boardPos.row + row >= 0 && boardPos.row + row < BOARD_HEIGHT &&
                         boardPos.col + col >= 0 && boardPos.col + col < BOARD_WIDTH) {
                         ctx.fillStyle = dragPiece.color;
@@ -455,7 +455,7 @@ function drawDragPreview() {
         }
         ctx.globalAlpha = 1.0;
     }
-    
+
     // Draw the dragging piece following the finger/mouse
     ctx.globalAlpha = 0.8;
     for (let row = 0; row < dragPiece.shape.length; row++) {
@@ -463,10 +463,10 @@ function drawDragPreview() {
             if (dragPiece.shape[row][col]) {
                 const x = dragPosition.x - dragOffset.x + (col * cellWidth);
                 const y = dragPosition.y - dragOffset.y + (row * cellHeight);
-                
+
                 ctx.fillStyle = dragPiece.color;
                 ctx.fillRect(x, y, cellWidth - 1, cellHeight - 1);
-                
+
                 // Add border for better visibility
                 ctx.strokeStyle = '#000';
                 ctx.lineWidth = 1;
@@ -480,12 +480,14 @@ function drawDragPreview() {
 function screenToBoardCoordinates(screenX, screenY) {
     const cellWidth = canvas.width / BOARD_WIDTH;
     const cellHeight = canvas.height / BOARD_HEIGHT;
-    
+
     const col = Math.floor(screenX / cellWidth);
     const row = Math.floor(screenY / cellHeight);
-    
-    return { row: Math.max(0, Math.min(row, BOARD_HEIGHT - 1)), 
-             col: Math.max(0, Math.min(col, BOARD_WIDTH - 1)) };
+
+    return {
+        row: Math.max(0, Math.min(row, BOARD_HEIGHT - 1)),
+        col: Math.max(0, Math.min(col, BOARD_WIDTH - 1))
+    };
 }
 
 function placePieceOnBoard(shape, color, startRow, startCol) {
@@ -494,14 +496,14 @@ function placePieceOnBoard(shape, color, startRow, startCol) {
             if (shape[row][col]) {
                 const boardRow = startRow + row;
                 const boardCol = startCol + col;
-                if (boardRow >= 0 && boardRow < BOARD_HEIGHT && 
+                if (boardRow >= 0 && boardRow < BOARD_HEIGHT &&
                     boardCol >= 0 && boardCol < BOARD_WIDTH) {
                     board[boardRow][boardCol] = color;
                 }
             }
         }
     }
-    
+
     // Update score
     const pieceSize = shape.flat().filter(cell => cell).length;
     score += pieceSize;
@@ -514,13 +516,13 @@ function canPlacePiece(shape, startRow, startCol) {
             if (shape[row][col]) {
                 const boardRow = startRow + row;
                 const boardCol = startCol + col;
-                
+
                 // Check boundaries
-                if (boardRow < 0 || boardRow >= BOARD_HEIGHT || 
+                if (boardRow < 0 || boardRow >= BOARD_HEIGHT ||
                     boardCol < 0 || boardCol >= BOARD_WIDTH) {
                     return false;
                 }
-                
+
                 // Check if cell is already occupied
                 if (board[boardRow][boardCol] !== 0) {
                     return false;
@@ -534,14 +536,14 @@ function canPlacePiece(shape, startRow, startCol) {
 function checkCompletedLines() {
     const completedRows = [];
     const completedCols = [];
-    
+
     // Check rows
     for (let row = 0; row < BOARD_HEIGHT; row++) {
         if (board[row].every(cell => cell !== 0)) {
             completedRows.push(row);
         }
     }
-    
+
     // Check columns
     for (let col = 0; col < BOARD_WIDTH; col++) {
         let isComplete = true;
@@ -555,10 +557,10 @@ function checkCompletedLines() {
             completedCols.push(col);
         }
     }
-    
+
     // Clear completed lines
     let cellsCleared = 0;
-    
+
     // Clear rows
     completedRows.forEach(row => {
         for (let col = 0; col < BOARD_WIDTH; col++) {
@@ -568,7 +570,7 @@ function checkCompletedLines() {
             }
         }
     });
-    
+
     // Clear columns
     completedCols.forEach(col => {
         for (let row = 0; row < BOARD_HEIGHT; row++) {
@@ -578,11 +580,11 @@ function checkCompletedLines() {
             }
         }
     });
-    
+
     if (cellsCleared > 0) {
         score += cellsCleared;
         linesCleared += completedRows.length + completedCols.length;
-        
+
         // Bonus for multiple lines
         if (completedRows.length + completedCols.length > 1) {
             score += (completedRows.length + completedCols.length) * 10;
@@ -593,7 +595,7 @@ function checkCompletedLines() {
 function checkGameOver() {
     // Check if any remaining piece can be placed anywhere on the board
     const availablePieces = currentPieces.filter(p => !p.used);
-    
+
     for (const piece of availablePieces) {
         for (let row = 0; row < BOARD_HEIGHT; row++) {
             for (let col = 0; col < BOARD_WIDTH; col++) {
@@ -603,7 +605,7 @@ function checkGameOver() {
             }
         }
     }
-    
+
     // No moves possible - game over
     gameOver = true;
     showGameOver();
@@ -621,11 +623,11 @@ function restartGame() {
     linesCleared = 0;
     selectedPiece = null;
     isDragging = false;
-    
+
     board = Array(BOARD_HEIGHT).fill().map(() => Array(BOARD_WIDTH).fill(0));
     generateNewPieces();
     updateScore();
-    
+
     document.getElementById('gameOverlay').style.display = 'none';
     document.querySelectorAll('.piece-preview').forEach(p => p.classList.remove('selected'));
 }
@@ -638,40 +640,40 @@ function updateScore() {
 function drawGame() {
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
+
     const cellWidth = canvas.width / BOARD_WIDTH;
     const cellHeight = canvas.height / BOARD_HEIGHT;
-    
+
     // Draw grid
     ctx.strokeStyle = '#333';
     ctx.lineWidth = 1;
-    
+
     for (let row = 0; row <= BOARD_HEIGHT; row++) {
         ctx.beginPath();
         ctx.moveTo(0, row * cellHeight);
         ctx.lineTo(canvas.width, row * cellHeight);
         ctx.stroke();
     }
-    
+
     for (let col = 0; col <= BOARD_WIDTH; col++) {
         ctx.beginPath();
         ctx.moveTo(col * cellWidth, 0);
         ctx.lineTo(col * cellWidth, canvas.height);
         ctx.stroke();
     }
-    
+
     // Draw placed pieces
     for (let row = 0; row < BOARD_HEIGHT; row++) {
         for (let col = 0; col < BOARD_WIDTH; col++) {
             if (board[row][col] !== 0) {
                 ctx.fillStyle = board[row][col];
-                ctx.fillRect(col * cellWidth + 1, row * cellHeight + 1, 
-                           cellWidth - 2, cellHeight - 2);
-                
+                ctx.fillRect(col * cellWidth + 1, row * cellHeight + 1,
+                    cellWidth - 2, cellHeight - 2);
+
                 // Add highlight
                 ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-                ctx.fillRect(col * cellWidth + 1, row * cellHeight + 1, 
-                           cellWidth - 2, cellHeight / 4);
+                ctx.fillRect(col * cellWidth + 1, row * cellHeight + 1,
+                    cellWidth - 2, cellHeight / 4);
             }
         }
     }

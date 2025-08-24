@@ -2,9 +2,9 @@ name: Build APK
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, develop, 'feature/**', 'fix/**', 'hotfix/**' ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, develop ]
   workflow_dispatch:
 
 jobs:
@@ -48,5 +48,6 @@ jobs:
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
-        name: ohno-blocks-apk
+        name: ohno-blocks-apk-${{ github.ref_name }}-${{ github.sha }}
         path: app/build/outputs/apk/debug/*.apk
+        retention-days: 30

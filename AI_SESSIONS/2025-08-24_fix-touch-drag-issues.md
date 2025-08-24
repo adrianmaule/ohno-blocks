@@ -9,12 +9,20 @@
 - game.js: Improved touch handling for immediate drag from piece previews
 - game.js: Enhanced touch responsiveness and drag sensitivity
 - game.js: Fixed touch event propagation and passive event handling
+- .github/workflows/build-apk.yml: Updated to build feature/fix/hotfix branches
+- .github/workflows/game-testing-pipeline.yml: Created comprehensive testing pipeline for branches
 
 ## Game Logic Changes
 - Implemented immediate drag start from piece previews without requiring tap-first
 - Improved touch position calculation and drag offset handling
 - Enhanced touch responsiveness for better mobile gameplay experience
 - Added proper touch event prevention to avoid browser interference
+
+## CI/CD Improvements
+- Extended build triggers to include feature, fix, and hotfix branches
+- Added game-specific validation pipeline with asset checking
+- Implemented APK size monitoring and performance checks
+- Created automated PR comments with build status and testing checklist
 
 ## AI Suggestions Used
 - Immediate drag initialization from touchstart events
