@@ -159,14 +159,14 @@ function generateNewPieces() {
 function generateSinglePiece(index) {
     const pieceTypes = Object.keys(PIECE_TYPES);
     const randomType = pieceTypes[Math.floor(Math.random() * pieceTypes.length)];
-    
+
     currentPieces[index] = {
         type: randomType,
         shape: PIECE_TYPES[randomType],
         color: PIECE_COLORS[randomType],
         used: false
     };
-    
+
     updateSinglePiecePreview(index);
 }
 
@@ -174,10 +174,10 @@ function updateSinglePiecePreview(index) {
     const preview = document.getElementById(`piece${index + 1}`);
     const canvas = preview.querySelector('canvas');
     const ctx = canvas.getContext('2d');
-    
+
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
+
     if (currentPieces[index] && !currentPieces[index].used) {
         drawPiecePreview(ctx, currentPieces[index], canvas.width, canvas.height);
         preview.classList.remove('used');
